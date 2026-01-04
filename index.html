@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Poker Pro - Preflop Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { height: 100dvh; width: 100vw; overflow: hidden; background-color: #070707; color: white; font-family: ui-sans-serif, system-ui, sans-serif; }
+        .main-app { display: grid; grid-template-rows: 1fr auto 165px; height: 100dvh; }
+        .table-container { position: relative; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        
+        .btn-new-hand { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(40, 40, 40, 0.9); border: 1px solid #444; color: #fbbf24; padding: 8px 14px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        
+        /* Panel de Récords - Mismo estilo que el segundo archivo */
+        .stats-panel { position: absolute; top: 20px; right: 20px; z-index: 100; background: rgba(20, 20, 20, 0.8); border: 1px solid #333; padding: 6px 12px; border-radius: 8px; font-family: monospace; text-align: right; min-width: 110px; }
+        .stat-line { font-size: 10px; font-weight: 800; line-height: 1.2; display: flex; justify-content: space-between; gap: 10px; }
+        .stat-val { color: #fbbf24; }
+        .stat-actual { color: #fff; }
+
+        #feedback-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; padding: 15px 30px; border-radius: 15px; font-weight: 900; font-size: 24px; text-transform: uppercase; display: none; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+        
+        .poker-table { width: 100%; height: 85%; max-width: 440px; background: radial-gradient(circle at center, #1e4d30 0%, #0a1f14 100%); border: 8px solid #3d2b1f; border-radius: 150px; position: relative; box-shadow: inset 0 0 60px rgba(0,0,0,0.8); z-index: 1; }
+        .dealer-button { position: absolute; width: 22px; height: 22px; background: white; color: black; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; box-shadow: 0 2px 4px rgba(0,0,0,0.5); border: 1px solid #999; z-index: 70; display: none; }
+        .pot-label { position: absolute; top: 32%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 2px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); z-index: 50; }
+        .card { width: 42px; height: 58px; border-radius: 5px; display: flex; flex-direction: column; justify-content: space-between; padding: 3px 4px; font-weight: 900; font-size: 18px; line-height: 1; box-shadow: 0 3px 6px rgba(0,0,0,0.4); }
+        .card-suit { align-self: flex-end; font-size: 22px; }
+        .spades { background-color: #1a1a1a; color: #fff; }
+        .hearts { background-color: #e11d48; color: #fff; }
+        .clubs { background-color: #166534; color: #fff; }
+        .diamonds { background-color: #1e40af; color: #fff; }
+        .card-back-group { display: none; gap: -12px; position: absolute; top: -12px; z-index: 20; }
+        .card-back { width: 28px; height: 40px; background: linear-gradient(135deg, #8b0000 0%, #4a0000 100%); border: 1.5px solid #c0c0c0; border-radius: 3px; }
+        .player-pod { position: absolute; width: 85px; display: flex; flex-direction: column; align-items: center; z-index: 10; opacity: 0.3; filter: grayscale(1); transition: all 0.3s ease; }
+        .avatar-container { position: relative; width: 55px; height: 55px; }
+        .avatar-frame { width: 100%; height: 100%; border-radius: 50%; background: #151515; border: 2px solid #444; overflow: hidden; }
+        .avatar-img { width: 100%; height: 100%; object-fit: cover; }
+        .name-plate { background: rgba(0,0,0,0.9); border: 1px solid #333; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; margin-top: -8px; z-index: 30; text-align: center; width: 75px; }
+        .stack-val { font-size: 11px; font-weight: 800; color: #22c55e; margin-top: 2px; }
+        .bet-chips { position: absolute; background: rgba(0,0,0,0.8); border: 1px solid #fbbf24; color: white; padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 900; z-index: 60; min-width: 40px; text-align: center; display: none; }
+        .v-seat-0 { bottom: -15px; left: 50%; transform: translateX(-50%); } 
+        .v-seat-1 { bottom: 25%; left: -5px; }
+        .v-seat-2 { top: 20%; left: -5px; }
+        .v-seat-3 { top: -20px; left: 50%; transform: translateX(-50%); }
+        .v-seat-4 { top: 20%; right: -5px; }
+        .v-seat-5 { bottom: 25%; right: -5px; }
+        .d-pos-0 { bottom: 18%; left: 62%; }
+        .d-pos-1 { bottom: 42%; left: 20%; }
+        .d-pos-2 { top: 38%; left: 20%; }
+        .d-pos-3 { top: 12%; left: 40%; }
+        .d-pos-4 { top: 38%; right: 20%; }
+        .d-pos-5 { bottom: 42%; right: 20%; }
+        .v-bet-0 { bottom: 22%; left: 50%; transform: translateX(-50%); }
+        .v-bet-1 { bottom: 25%; left: 75px; }
+        .v-bet-2 { top: 25%; left: 75px; }
+        .v-bet-3 { top: 15%; left: 50%; transform: translateX(-50%); }
+        .v-bet-4 { top: 25%; right: 75px; }
+        .v-bet-5 { bottom: 35%; right: 75px; }
+        .hero-hand { display: flex; gap: 2px; position: absolute; bottom: 35px; z-index: 50; }
+        .action-bar { background: #111; padding: 15px 12px; display: flex; flex-direction: column; gap: 12px; }
+        .main-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-p { height: 60px; border-radius: 12px; font-weight: 800; text-transform: uppercase; color: white; border: none; }
+        .btn-allin-red { background: #b91c1c !important; border-bottom: 4px solid #7f1d1d !important; }
+        .btn-call-blue { background: #2563eb !important; border-bottom: 4px solid #1e40af !important; }
+        .active-player { opacity: 1 !important; filter: grayscale(0) !important; }
+        .is-hero-frame { border: 2px solid #fbbf24 !important; }
+        .phase-selection { display: flex; justify-content: center; gap: 12px; padding-bottom: 15px; background: #070707; }
+        .btn-phase { background: #1a1a1a; border: 1px solid #333; color: #fbbf24; padding: 8px 20px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; min-width: 110px; }
+        .btn-phase.active { background: #fbbf24; color: #000; }
+    </style>
+</head>
+<body>
+
+<div class="main-app">
+    <div class="table-container">
+        <div id="feedback-overlay"></div>
+        <button class="btn-new-hand" onclick="generateScenario()">NUEVA MANO</button>
+        
+        <div class="stats-panel">
+            <div class="stat-line"><span>RECORD:</span> <span id="record-val" class="stat-val">0</span></div>
+            <div class="stat-line"><span>ACTUAL:</span> <span id="actual-val" class="stat-actual">0</span></div>
+        </div>
+
+        <div class="poker-table">
+            <div id="pot-display" class="pot-label">POT: 0 BB</div>
+            <div id="dealer-btn" class="dealer-button">D</div>
+            <div id="pod-0" class="player-pod v-seat-0"><div id="hero-cards" class="hero-hand"></div><div class="avatar-container"><div class="avatar-frame"><img src="https://i.pravatar.cc/150?u=hero_poker_1" class="avatar-img"></div></div><div class="name-plate">HERO</div><div class="stack-val">100 BB</div></div>
+            <div id="bet-0" class="bet-chips v-bet-0"></div>
+            <div id="pod-1" class="player-pod v-seat-1"><div class="card-back-group"><div class="card-back"></div><div class="card-back"></div></div><div class="avatar-container"><div class="avatar-frame"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop" class="avatar-img"></div></div><div class="name-plate">UTG</div><div class="stack-val">100 BB</div></div>
+            <div id="bet-1" class="bet-chips v-bet-1"></div>
+            <div id="pod-2" class="player-pod v-seat-2"><div class="card-back-group"><div class="card-back"></div><div class="card-back"></div></div><div class="avatar-container"><div class="avatar-frame"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop" class="avatar-img"></div></div><div class="name-plate">MP</div><div class="stack-val">100 BB</div></div>
+            <div id="bet-2" class="bet-chips v-bet-2"></div>
+            <div id="pod-3" class="player-pod v-seat-3"><div class="card-back-group"><div class="card-back"></div><div class="card-back"></div></div><div class="avatar-container"><div class="avatar-frame"><img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop" class="avatar-img"></div></div><div class="name-plate">CO</div><div class="stack-val">100 BB</div></div>
+            <div id="bet-3" class="bet-chips v-bet-3"></div>
+            <div id="pod-4" class="player-pod v-seat-4"><div class="card-back-group"><div class="card-back"></div><div class="card-back"></div></div><div class="avatar-container"><div class="avatar-frame"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop" class="avatar-img"></div></div><div class="name-plate">BU</div><div class="stack-val">100 BB</div></div>
+            <div id="bet-4" class="bet-chips v-bet-4"></div>
+            <div id="pod-5" class="player-pod v-seat-5"><div class="card-back-group"><div class="card-back"></div><div class="card-back"></div></div><div class="avatar-container"><div class="avatar-frame"><img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop" class="avatar-img"></div></div><div class="name-plate">SB</div><div class="stack-val">100 BB</div></div>
+            <div id="bet-5" class="bet-chips v-bet-5"></div>
+        </div>
+    </div>
+    <div class="phase-selection">
+        <button class="btn-phase active">PREFLOP</button>
+        <button class="btn-phase" onclick="goToPostflop()">POSTFLOP</button>
+    </div>
+    <div class="action-bar"><div id="button-container" class="main-btns"></div></div>
+</div>
+
+<script>
+    const posNames = ['UTG', 'MP', 'CO', 'BU', 'SB', 'BB'];
+    const range = [
+        {id: 'AA', v1: 'A', v2: 'A', s1: 'spades', s2: 'hearts', i1: '♠', i2: '♥'},
+        {id: 'KK', v1: 'K', v2: 'K', s1: 'clubs', s2: 'diamonds', i1: '♣', i2: '♦'},
+        {id: 'QQ', v1: 'Q', v2: 'Q', s1: 'hearts', s2: 'diamonds', i1: '♥', i2: '♦'},
+        {id: 'AKs', v1: 'A', v2: 'K', s1: 'spades', s2: 'spades', i1: '♠', i2: '♠'},
+        {id: 'AKo', v1: 'A', v2: 'K', s1: 'diamonds', s2: 'clubs', i1: '♦', i2: '♣'},
+        {id: 'JJ', v1: 'J', v2: 'J', s1: 'clubs', s2: 'hearts', i1: '♣', i2: '♥'},
+        {id: 'AQs', v1: 'A', v2: 'Q', s1: 'diamonds', s2: 'diamonds', i1: '♦', i2: '♦'}
+    ];
+
+    let currentHand = null;
+    let isVillanoNit = false;
+    let villanoStackSize = 100;
+    let currentScenarioType = "";
+    let lastPot = 0;
+    
+    // Lógica de Récords Preflop
+    let actualHands = 0;
+    let recordHands = localStorage.getItem('poker_record_preflop') || 0;
+    document.getElementById('record-val').innerText = recordHands;
+
+    function updateStats(isCorrect) {
+        if (isCorrect) {
+            actualHands++;
+            if (actualHands > recordHands) {
+                recordHands = actualHands;
+                localStorage.setItem('poker_record_preflop', recordHands);
+            }
+        } else {
+            actualHands = 0;
+        }
+        document.getElementById('actual-val').innerText = actualHands;
+        document.getElementById('record-val').innerText = recordHands;
+    }
+
+    function renderButtons(hasCall = false) {
+        const container = document.getElementById('button-container');
+        container.innerHTML = hasCall ? 
+            `<button class="btn-p btn-call-blue" onclick="checkDecision('CALL')">CALL</button><button class="btn-p btn-allin-red" onclick="checkDecision('ALLIN')">ALL IN</button>` :
+            `<button class="btn-p bg-slate-700" onclick="checkDecision('FOLD')">FOLD</button><button class="btn-p btn-allin-red" onclick="checkDecision('ALLIN')">ALL IN</button>`;
+    }
+
+    function checkDecision(decision) {
+        const overlay = document.getElementById('feedback-overlay');
+        let isCorrect = false;
+
+        if (villanoStackSize === 100) {
+            if (decision === 'ALLIN') isCorrect = (currentHand.id === 'AA' || (currentHand.id === 'KK' && !isVillanoNit));
+            else if (decision === 'FOLD') isCorrect = (['QQ', 'AKs', 'AKo', 'JJ', 'AQs'].includes(currentHand.id) || (currentHand.id === 'KK' && isVillanoNit));
+        } else {
+            if (currentScenarioType === "3bet-push") {
+                if (decision === 'ALLIN') isCorrect = ['AA', 'KK', 'AKs'].includes(currentHand.id);
+                if (decision === 'FOLD') isCorrect = ['QQ', 'JJ', 'AQs', 'AKo'].includes(currentHand.id);
+            } else {
+                if (decision === 'ALLIN') isCorrect = ['AA', 'KK', 'AKs'].includes(currentHand.id);
+                if (decision === 'CALL') isCorrect = ['QQ', 'JJ', 'AQs', 'AKo'].includes(currentHand.id);
+            }
+        }
+
+        updateStats(isCorrect);
+        overlay.innerText = isCorrect ? "CORRECTO" : "FALLASTE";
+        overlay.style.backgroundColor = isCorrect ? "#16a34a" : "#dc2626";
+        overlay.style.display = "block";
+        setTimeout(() => { overlay.style.display = "none"; if(isCorrect) generateScenario(); }, 800);
+    }
+
+    function generateScenario() {
+        isVillanoNit = false;
+        villanoStackSize = Math.random() > 0.5 ? 100 : 50;
+        currentHand = range[Math.floor(Math.random() * range.length)];
+        if (currentHand.id === 'KK' && villanoStackSize === 100 && Math.random() > 0.5) isVillanoNit = true;
+
+        document.querySelectorAll('.player-pod').forEach(p => { p.style.opacity = '0.3'; p.classList.remove('active-player'); });
+        document.querySelectorAll('.card-back-group').forEach(c => c.style.display = 'none');
+        document.querySelectorAll('.bet-chips').forEach(b => { b.style.display = 'none'; b.style.borderColor = '#fbbf24'; });
+
+        let heroPosIdx, villanoPosIdx;
+        if (villanoStackSize === 50) {
+            currentScenarioType = Math.random() > 0.5 ? "3bet-push" : "open-3bet";
+            if (currentScenarioType === "3bet-push") { heroPosIdx = 4 + Math.floor(Math.random() * 2); villanoPosIdx = Math.floor(Math.random() * 4); }
+            else { heroPosIdx = Math.floor(Math.random() * 4); villanoPosIdx = 4 + Math.floor(Math.random() * 2); }
+        } else {
+            heroPosIdx = Math.floor(Math.random() * 6);
+            do { villanoPosIdx = Math.floor(Math.random() * 6); } while (villanoPosIdx === heroPosIdx);
+        }
+
+        const dealerBtn = document.getElementById('dealer-btn');
+        dealerBtn.className = 'dealer-button'; dealerBtn.style.display = 'flex';
+        let vIdxVisual = -1;
+
+        for (let i = 0; i < 6; i++) {
+            const logicalPos = (i + heroPosIdx) % 6;
+            const pod = document.getElementById(`pod-${i}`);
+            const baseStack = (logicalPos === villanoPosIdx) ? villanoStackSize : 100;
+            pod.dataset.stack = baseStack;
+            if (i === 0) {
+                pod.querySelector('.name-plate').innerText = `HERO (${posNames[logicalPos]})`;
+                pod.classList.add('active-player', 'opacity-100');
+                pod.querySelector('.avatar-frame').classList.add('is-hero-frame');
+            } else if (logicalPos === villanoPosIdx) {
+                pod.classList.add('active-player', 'opacity-100');
+                pod.querySelector('.card-back-group').style.display = 'flex';
+                vIdxVisual = i;
+                pod.querySelector('.name-plate').innerText = isVillanoNit ? `${posNames[logicalPos]} (NIT)` : posNames[logicalPos];
+            } else {
+                pod.querySelector('.name-plate').innerText = posNames[logicalPos];
+                pod.querySelector('.avatar-frame').classList.remove('is-hero-frame');
+            }
+            if (logicalPos === 3) dealerBtn.classList.add(`d-pos-${i}`);
+        }
+
+        let hBet, vBet;
+        if (villanoStackSize === 100) {
+            hBet = (heroPosIdx < villanoPosIdx) ? 24 : 10;
+            vBet = (heroPosIdx < villanoPosIdx) ? 100 : 24;
+            if (heroPosIdx < villanoPosIdx) document.getElementById(`bet-${vIdxVisual}`).style.borderColor = "#ef4444";
+            renderButtons(false);
+        } else {
+            if (currentScenarioType === "3bet-push") { hBet = 10; vBet = 50; document.getElementById(`bet-${vIdxVisual}`).style.borderColor = "#ef4444"; renderButtons(false); }
+            else { hBet = 2.5; vBet = 9; renderButtons(['QQ', 'JJ', 'AQs', 'AKo'].includes(currentHand.id)); }
+        }
+
+        let deadBlinds = 0;
+        for (let i = 0; i < 6; i++) {
+            const logicalPos = (i + heroPosIdx) % 6;
+            const pod = document.getElementById(`pod-${i}`);
+            let currentS = parseFloat(pod.dataset.stack);
+            if (i === 0) currentS -= hBet;
+            else if (logicalPos === villanoPosIdx) currentS -= vBet;
+            else {
+                if (logicalPos === 4) { currentS -= 0.5; deadBlinds += 0.5; }
+                if (logicalPos === 5) { currentS -= 1.0; deadBlinds += 1.0; }
+            }
+            pod.querySelector('.stack-val').innerText = currentS.toFixed(1) + " BB";
+        }
+
+        document.getElementById(`bet-0`).innerText = hBet + " BB";
+        document.getElementById(`bet-0`).style.display = 'block';
+        document.getElementById(`bet-${vIdxVisual}`).innerText = vBet + " BB";
+        document.getElementById(`bet-${vIdxVisual}`).style.display = 'block';
+        lastPot = (hBet + vBet + deadBlinds).toFixed(1);
+        document.getElementById('pot-display').innerText = `POT: ${lastPot} BB`;
+        document.getElementById('hero-cards').innerHTML = `<div class="card ${currentHand.s1}" style="transform:rotate(-5deg)"><span>${currentHand.v1}</span><span class="card-suit">${currentHand.i1}</span></div><div class="card ${currentHand.s2}" style="transform:rotate(5deg)"><span>${currentHand.v2}</span><span class="card-suit">${currentHand.i2}</span></div>`;
+    }
+
+    function goToPostflop() {
+        const gameData = {
+            hand: currentHand,
+            pot: lastPot,
+            villanoStack: villanoStackSize,
+            isNit: isVillanoNit
+        };
+        localStorage.setItem('pokerGameData', JSON.stringify(gameData));
+        window.location.href = 'postflop.html';
+    }
+
+    window.onload = generateScenario;
+</script>
+</body>
+</html>
